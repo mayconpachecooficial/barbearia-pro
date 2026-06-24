@@ -581,18 +581,15 @@ export default function Home() {
 
           {tab === "servicos" && (
             <div className="grid gap-6 xl:grid-cols-[0.85fr_1.4fr]">
-              <div className="space-y-6">
-                <Panel title="Finalizar atendimento">
-                  <SmartForm action={addService} submit="Registrar serviço">
-                    <Select label="Cliente" name="clientId" options={data.clients.map((client) => [client.id, client.name])} />
-                    <Select label="Barbeiro" name="barberId" options={data.barbers.filter((barber) => barber.active).map((barber) => [barber.id, barber.name])} />
-                    <Field label="Data" name="date" type="date" defaultValue={todayKey()} />
-                    <Field label="Serviço realizado" name="service" placeholder="Ex.: Corte degradê, barba terapia, luzes" />
-                    <Field label="Valor cobrado" name="value" type="number" />
-                  </SmartForm>
-                </Panel>
-                <ProductForm action={addProduct} />
-              </div>
+              <Panel title="Finalizar atendimento">
+                <SmartForm action={addService} submit="Registrar serviço">
+                  <Select label="Cliente" name="clientId" options={data.clients.map((client) => [client.id, client.name])} />
+                  <Select label="Barbeiro" name="barberId" options={data.barbers.filter((barber) => barber.active).map((barber) => [barber.id, barber.name])} />
+                  <Field label="Data" name="date" type="date" defaultValue={todayKey()} />
+                  <Field label="Serviço realizado" name="service" placeholder="Ex.: Corte degradê, barba terapia, luzes" />
+                  <Field label="Valor cobrado" name="value" type="number" />
+                </SmartForm>
+              </Panel>
               <Panel title="Últimos atendimentos">
                 <div className="space-y-3">
                   {data.services.slice(0, 12).map((service) => (
@@ -620,22 +617,19 @@ export default function Home() {
 
           {tab === "financeiro" && (
             <div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
-              <div className="space-y-6">
-                <Panel title="Entradas">
-                  <SmartForm action={sellProduct} submit="Registrar venda">
-                    <Select label="Produto" name="productId" options={data.products.map((product) => [product.id, product.name])} />
-                    <Select label="Cliente" name="clientId" options={[["", "Venda avulsa"], ...data.clients.map((client) => [client.id, client.name])]} />
-                    <Field label="Data" name="date" type="date" defaultValue={todayKey()} />
-                    <Field label="Quantidade" name="quantity" type="number" defaultValue="1" />
-                    <Field label="Preço unitário" name="unitPrice" type="number" />
-                  </SmartForm>
-                  <div className="mt-5 space-y-2">
-                    <Row label="Serviços no mês" value={brl.format(serviceRevenue(data.services.filter((item) => inMonth(item.date))))} />
-                    <Row label="Produtos no mês" value={brl.format(sum(data.productSales.filter((item) => inMonth(item.date)).map(productSaleRevenue)))} />
-                  </div>
-                </Panel>
-                <ProductForm action={addProduct} />
-              </div>
+              <Panel title="Entradas">
+                <SmartForm action={sellProduct} submit="Registrar venda">
+                  <Select label="Produto" name="productId" options={data.products.map((product) => [product.id, product.name])} />
+                  <Select label="Cliente" name="clientId" options={[["", "Venda avulsa"], ...data.clients.map((client) => [client.id, client.name])]} />
+                  <Field label="Data" name="date" type="date" defaultValue={todayKey()} />
+                  <Field label="Quantidade" name="quantity" type="number" defaultValue="1" />
+                  <Field label="Preço unitário" name="unitPrice" type="number" />
+                </SmartForm>
+                <div className="mt-5 space-y-2">
+                  <Row label="Serviços no mês" value={brl.format(serviceRevenue(data.services.filter((item) => inMonth(item.date))))} />
+                  <Row label="Produtos no mês" value={brl.format(sum(data.productSales.filter((item) => inMonth(item.date)).map(productSaleRevenue)))} />
+                </div>
+              </Panel>
               <Panel title="Saídas">
                 <SmartForm action={addExpense} submit="Registrar despesa">
                   <Field label="Data" name="date" type="date" defaultValue={todayKey()} />
@@ -666,9 +660,6 @@ export default function Home() {
                     </Card>
                   ))}
                 </div>
-              </Panel>
-              <Panel title="Produtos no financeiro">
-                <ProductList products={data.products} productSales={data.productSales} deleteProduct={deleteProduct} />
               </Panel>
             </div>
           )}
