@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  background: #080808;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background:
+    radial-gradient(circle at 50% -20%, rgba(216, 166, 63, 0.12), transparent 34rem),
+    linear-gradient(180deg, #0b0b0b 0%, #080808 45%, #101010 100%);
+  color: #f8f5ed;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  touch-action: manipulation;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #111111;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3a3327;
+  border-radius: 999px;
+}
+
+@media print {
+  body {
+    background: #ffffff;
+    color: #111111;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-card {
+    border: 1px solid #d4d4d4 !important;
+    background: #ffffff !important;
+    color: #111111 !important;
+  }
+}
+
+@layer components {
+  .icon-button {
+    @apply inline-flex h-11 items-center justify-center gap-2 rounded-md border border-line bg-panel text-sm font-medium text-ivory transition hover:border-gold hover:text-gold;
+    min-width: 2.75rem;
+  }
+}
