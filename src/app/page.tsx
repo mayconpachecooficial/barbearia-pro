@@ -19,7 +19,6 @@ import {
   ClipboardList,
   CreditCard,
   Download,
-  LockKeyhole,
   Package,
   Plus,
   Scissors,
@@ -58,8 +57,6 @@ import type {
   ProductSale,
   ServiceRecord,
 } from "@/lib/types";
-import { loadRemoteData, saveRemoteData } from "@/lib/database";
-import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
@@ -120,42 +117,16 @@ const newId = (prefix: string) => `${prefix}${crypto.randomUUID()}`;
 export default function Home() {
   const [data, setData] = useState<AppData>(initialData);
   const [tab, setTab] = useState<Tab>("dashboard");
-  const [logged, setLogged] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedDate, setSelectedDate] = useState(todayKey());
   const [range, setRange] = useState({ start: format(subDays(new Date(), 7), "yyyy-MM-dd"), end: todayKey() });
   const [lastBackup, setLastBackup] = useState("");
-  const [currentUserId, setCurrentUserId] = useState("");
-  const [syncStatus, setSyncStatus] = useState(isSupabaseConfigured ? "Banco aguardando login" : "Modo local ativo");
-  const [hydrated, setHydrated] = useState(false);
+  const [syncStatus] = useState("Entrada direta ativa");
 
   useEffect(() => {
     const saved = localStorage.getItem("barbearia-pro-data");
     if (saved) setData(JSON.parse(saved) as AppData);
     setLastBackup(localStorage.getItem("barbearia-pro-last-backup") || "");
-    setHydrated(true);
-
-    const client = supabase;
-    if (client) {
-      client.auth.getSession().then(async ({ data: sessionData }) => {
-        const userId = sessionData.session?.user.id;
-        if (!userId) return;
-        setLogged(true);
-        setCurrentUserId(userId);
-        setSyncStatus("Carregando banco...");
-        try {
-          const remoteData = await loadRemoteData(client, userId);
-          if (remoteData.clients.length || remoteData.barbers.length || remoteData.products.length) {
-            setData(remoteData);
-          }
-          setSyncStatus("Banco conectado");
-        } catch {
-          setSyncStatus("Banco indisponível");
-        }
-      });
-    } else {
-      setLogged(localStorage.getItem("barbearia-pro-session") === "active");
-    }
   }, []);
 
   useEffect(() => {
@@ -165,18 +136,6 @@ export default function Home() {
     localStorage.setItem("barbearia-pro-last-backup", backup.createdAt);
     setLastBackup(backup.createdAt);
   }, [data]);
-
-  useEffect(() => {
-    const client = supabase;
-    if (!hydrated || !client || !currentUserId) return;
-    const timeout = window.setTimeout(() => {
-      setSyncStatus("Sincronizando...");
-      saveRemoteData(client, currentUserId, data)
-        .then(() => setSyncStatus("Banco sincronizado"))
-        .catch(() => setSyncStatus("Falha ao sincronizar"));
-    }, 700);
-    return () => window.clearTimeout(timeout);
-  }, [currentUserId, data, hydrated]);
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
@@ -376,80 +335,6 @@ export default function Home() {
     doc.save(`relatorio-barbearia-${todayKey()}.pdf`);
   };
 
-  if (!logged) {
-    return (
-      <main className="grid min-h-screen place-items-center px-4 py-10">
-        <section className="w-full max-w-md rounded-lg border border-line bg-panel p-6 shadow-glow">
-          <div className="mb-8 flex items-center gap-3">
-            <div className="grid size-12 place-items-center rounded-md border border-gold/50 bg-gold/10 text-gold">
-              <Scissors size={26} />
-            </div>
-            <div>
-              <h1 className="text-2xl font-semibold text-ivory">Barbearia Pro</h1>
-              <p className="text-sm text-muted">Controle completo para barbearias premium</p>
-            </div>
-          </div>
-          <form
-            className="space-y-4"
-            onSubmit={async (event) => {
-              event.preventDefault();
-              const form = new FormData(event.currentTarget);
-              const client = supabase;
-              if (client) {
-                const email = String(form.get("email") || "");
-                const password = String(form.get("password") || "");
-                if (!email || !password) {
-                  setSyncStatus("Preencha e-mail e senha.");
-                  return;
-                }
-                setSyncStatus("Entrando...");
-                try {
-                  const { data: authData, error } = await client.auth.signInWithPassword({ email, password });
-                  if (error || !authData.user) {
-                    setSyncStatus(error?.message || "Login inválido ou e-mail não confirmado.");
-                    return;
-                  }
-                  setCurrentUserId(authData.user.id);
-                  const remoteData = await loadRemoteData(client, authData.user.id);
-                  if (remoteData.clients.length || remoteData.barbers.length || remoteData.products.length) {
-                    setData(remoteData);
-                  }
-                  setSyncStatus("Banco conectado");
-                  localStorage.setItem("barbearia-pro-session", "active");
-                  setLogged(true);
-                } catch {
-                  setSyncStatus("Não foi possível carregar seus dados.");
-                  return;
-                }
-              } else {
-                localStorage.setItem("barbearia-pro-session", "active");
-                setLogged(true);
-              }
-            }}
-          >
-            <Field label="E-mail" name="email" type="email" placeholder="seuemail@exemplo.com" />
-            <Field label="Senha" name="password" type="password" placeholder="Digite sua senha" />
-            <button className="flex h-12 w-full items-center justify-center gap-2 rounded-md bg-gold px-4 font-semibold text-coal transition hover:bg-gold-soft">
-              <LockKeyhole size={18} />
-              Entrar
-            </button>
-            <a href={`${basePath}/cadastro/`} className="flex h-12 w-full items-center justify-center gap-2 rounded-md border border-gold/50 bg-gold/10 px-4 font-semibold text-gold transition hover:bg-gold/15">
-              <Users size={18} />
-              Criar conta
-            </a>
-            <a href={`${basePath}/esqueci-senha/`} className="block text-center text-sm text-muted transition hover:text-gold">
-              Esqueci minha senha
-            </a>
-          </form>
-          <p className="mt-4 rounded-md border border-line bg-coal px-3 py-2 text-sm text-muted">{syncStatus}</p>
-          <p className="mt-5 text-xs text-muted">
-            {isSupabaseConfigured ? "Entre com uma conta confirmada por e-mail." : "Modo local ativo. Configure Supabase para autenticação real."}
-          </p>
-        </section>
-      </main>
-    );
-  }
-
   return (
     <main className="min-h-screen">
       <aside className="no-print fixed inset-x-0 bottom-0 z-30 border-t border-line bg-coal/95 px-2 py-2 backdrop-blur lg:inset-y-0 lg:left-0 lg:right-auto lg:w-72 lg:border-r lg:border-t-0 lg:p-5">
@@ -497,19 +382,6 @@ export default function Home() {
               <span className="hidden rounded-md border border-line bg-panel px-3 py-2 text-xs text-muted md:inline">
                 Backup {lastBackup ? format(parseISO(lastBackup), "dd/MM HH:mm") : "pendente"}
               </span>
-              <button
-                onClick={() => {
-                  localStorage.removeItem("barbearia-pro-session");
-                  supabase?.auth.signOut();
-                  setCurrentUserId("");
-                  setSyncStatus(isSupabaseConfigured ? "Banco aguardando login" : "Modo local ativo");
-                  setLogged(false);
-                }}
-                className="icon-button"
-                title="Sair"
-              >
-                <XCircle size={18} />
-              </button>
             </div>
           </div>
         </header>
