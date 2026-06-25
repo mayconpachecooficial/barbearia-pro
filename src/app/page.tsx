@@ -163,6 +163,7 @@ export default function Home() {
   const suppressNextSaveRef = useRef(false);
   const saveTimerRef = useRef<number | null>(null);
   const latestDataRef = useRef(data);
+  const lastSavedDataRef = useRef<AppData | undefined>(undefined);
   const lastSnapshotRef = useRef(serializeData(initialData));
   const lastLocalChangeRef = useRef(0);
 
@@ -174,8 +175,9 @@ export default function Home() {
     savingRef.current = true;
     dirtyRef.current = false;
     setSyncStatus("Salvando...");
-    saveRemoteData(client, sharedUserId, latestDataRef.current)
+    saveRemoteData(client, sharedUserId, latestDataRef.current, lastSavedDataRef.current)
       .then(() => {
+        lastSavedDataRef.current = latestDataRef.current;
         lastSnapshotRef.current = serializeData(latestDataRef.current);
         setSyncStatus("Salvo no banco");
       })
@@ -224,6 +226,7 @@ export default function Home() {
         if (hasData(remoteData)) {
           suppressNextSaveRef.current = true;
           latestDataRef.current = remoteData;
+          lastSavedDataRef.current = remoteData;
           lastSnapshotRef.current = serializeData(remoteData);
           setData(remoteData);
           setSyncStatus("Banco conectado");
@@ -231,6 +234,8 @@ export default function Home() {
         }
 
         await saveRemoteData(client, sharedUserId, initialData);
+        lastSavedDataRef.current = initialData;
+        lastSnapshotRef.current = serializeData(initialData);
         setSyncStatus("Banco iniciado");
       })
       .catch(() => {
@@ -271,6 +276,7 @@ export default function Home() {
           if (snapshot === lastSnapshotRef.current) return;
           suppressNextSaveRef.current = true;
           latestDataRef.current = remoteData;
+          lastSavedDataRef.current = remoteData;
           lastSnapshotRef.current = snapshot;
           setData(remoteData);
           setSyncStatus("Banco atualizado");

@@ -31,20 +31,16 @@ export async function loadRemoteData(supabase: SupabaseClient, userId: SharedUse
   };
 }
 
-export async function saveRemoteData(supabase: SupabaseClient, userId: SharedUserId, data: AppData) {
-  const tables = ["appointments", "product_sales", "service_records", "expenses", "products", "barbers", "clients"];
-  for (const table of tables) {
-    const { error } = await deleteRows(supabase, table, userId);
-    if (error) throw error;
+export async function saveRemoteData(supabase: SupabaseClient, userId: SharedUserId, data: AppData, previous?: AppData) {
+  const changes = buildChanges(data, previous, userId);
+
+  for (const change of changes.upserts) {
+    await upsertRows(supabase, change.table, change.rows);
   }
 
-  await insertRows(supabase, "clients", data.clients.map((client) => fromClient(client, userId)));
-  await insertRows(supabase, "barbers", data.barbers.map((barber) => fromBarber(barber, userId)));
-  await insertRows(supabase, "products", data.products.map((product) => fromProduct(product, userId)));
-  await insertRows(supabase, "service_records", data.services.map((service) => fromServiceRecord(service, userId)));
-  await insertRows(supabase, "expenses", data.expenses.map((expense) => fromExpense(expense, userId)));
-  await insertRows(supabase, "product_sales", data.productSales.map((sale) => fromProductSale(sale, userId)));
-  await insertRows(supabase, "appointments", data.appointments.map((appointment) => fromAppointment(appointment, userId)));
+  for (const change of changes.deletions) {
+    await deleteRowsByIds(supabase, change.table, userId, change.ids);
+  }
 }
 
 type SupabaseQuery = {
@@ -52,6 +48,9 @@ type SupabaseQuery = {
   is: (column: string, value: null) => SupabaseQuery;
   order: (column: string, options?: { ascending?: boolean }) => SupabaseQuery;
 };
+
+type CollectionChange = { table: string; rows: Row[] };
+type DeletionChange = { table: string; ids: string[] };
 
 function selectTable(supabase: SupabaseClient, table: string) {
   return supabase.from(table).select("*") as unknown as SupabaseQuery;
@@ -77,6 +76,61 @@ async function insertRows(supabase: SupabaseClient, table: string, rows: Row[]) 
   if (!rows.length) return;
   const { error } = await supabase.from(table).insert(rows);
   if (error) throw error;
+}
+
+async function upsertRows(supabase: SupabaseClient, table: string, rows: Row[]) {
+  if (!rows.length) return;
+  const { error } = await supabase.from(table).upsert(rows, { onConflict: "id" });
+  if (error) throw error;
+}
+
+async function deleteRowsByIds(supabase: SupabaseClient, table: string, userId: SharedUserId, ids: string[]) {
+  for (const id of ids) {
+    const { error } = await filterByUser(supabase.from(table).delete().eq("id", id) as unknown as SupabaseQuery, userId) as unknown as SupabaseMutationResult;
+    if (error) throw error;
+  }
+}
+
+function buildChanges(data: AppData, previous: AppData | undefined, userId: SharedUserId) {
+  const clients = diffRows(data.clients, previous?.clients, (client) => fromClient(client, userId));
+  const barbers = diffRows(data.barbers, previous?.barbers, (barber) => fromBarber(barber, userId));
+  const products = diffRows(data.products, previous?.products, (product) => fromProduct(product, userId));
+  const services = diffRows(data.services, previous?.services, (service) => fromServiceRecord(service, userId));
+  const expenses = diffRows(data.expenses, previous?.expenses, (expense) => fromExpense(expense, userId));
+  const productSales = diffRows(data.productSales, previous?.productSales, (sale) => fromProductSale(sale, userId));
+  const appointments = diffRows(data.appointments, previous?.appointments, (appointment) => fromAppointment(appointment, userId));
+
+  return {
+    upserts: [
+      { table: "clients", rows: clients.upserts },
+      { table: "barbers", rows: barbers.upserts },
+      { table: "products", rows: products.upserts },
+      { table: "service_records", rows: services.upserts },
+      { table: "expenses", rows: expenses.upserts },
+      { table: "product_sales", rows: productSales.upserts },
+      { table: "appointments", rows: appointments.upserts },
+    ] satisfies CollectionChange[],
+    deletions: [
+      { table: "appointments", ids: appointments.deletions },
+      { table: "product_sales", ids: productSales.deletions },
+      { table: "service_records", ids: services.deletions },
+      { table: "expenses", ids: expenses.deletions },
+      { table: "products", ids: products.deletions },
+      { table: "barbers", ids: barbers.deletions },
+      { table: "clients", ids: clients.deletions },
+    ] satisfies DeletionChange[],
+  };
+}
+
+function diffRows<T extends { id: string }>(items: T[], previousItems: T[] | undefined, toRow: (item: T) => Row) {
+  if (!previousItems) return { upserts: items.map(toRow), deletions: [] };
+
+  const previousById = new Map(previousItems.map((item) => [item.id, item]));
+  const currentIds = new Set(items.map((item) => item.id));
+  return {
+    upserts: items.filter((item) => JSON.stringify(item) !== JSON.stringify(previousById.get(item.id))).map(toRow),
+    deletions: previousItems.filter((item) => !currentIds.has(item.id)).map((item) => item.id),
+  };
 }
 
 function toClient(row: Row): Client {
