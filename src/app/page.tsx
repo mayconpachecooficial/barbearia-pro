@@ -61,8 +61,8 @@ import type {
 import { loadRemoteData, saveRemoteData } from "@/lib/database";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
 const sharedUserId = null;
+const databaseTimeoutMs = 12000;
 const serializeData = (items: AppData) => JSON.stringify(items);
 const hasData = (items: AppData) =>
   items.clients.length ||
@@ -127,6 +127,47 @@ const navItems: Array<{ key: Tab; label: string; icon: React.ElementType }> = [
 
 const newId = (prefix: string) => `${prefix}${crypto.randomUUID()}`;
 
+const withTimeout = <T,>(promise: Promise<T>, label: string) =>
+  Promise.race<T>([
+    promise,
+    new Promise<T>((_, reject) => {
+      window.setTimeout(() => reject(new Error(`${label} demorou demais`)), databaseTimeoutMs);
+    }),
+  ]);
+
+const toInputDate = (value: string, fallback = todayKey()) => {
+  const clean = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) return clean;
+  const match = clean.match(/^(\d{2})[-/](\d{2})[-/](\d{4})$/);
+  if (match) return `${match[3]}-${match[2]}-${match[1]}`;
+  return fallback;
+};
+
+const toDisplayDate = (value: string) => {
+  if (!value) return "";
+  const normalized = toInputDate(value, "");
+  if (!normalized) return value;
+  const [year, month, day] = normalized.split("-");
+  return `${day}-${month}-${year}`;
+};
+
+const safeDisplayDate = (value: string) => {
+  try {
+    return toDisplayDate(value);
+  } catch {
+    return value || "não informado";
+  }
+};
+
+const safeBackupDate = (value: string) => {
+  if (!value) return "pendente";
+  try {
+    return format(parseISO(value), "dd-MM HH:mm");
+  } catch {
+    return "pendente";
+  }
+};
+
 const promptText = (label: string, current = "") => {
   const value = window.prompt(label, current);
   return value === null ? null : value.trim();
@@ -175,7 +216,7 @@ export default function Home() {
     savingRef.current = true;
     dirtyRef.current = false;
     setSyncStatus("Salvando...");
-    saveRemoteData(client, sharedUserId, latestDataRef.current, lastSavedDataRef.current)
+    withTimeout(saveRemoteData(client, sharedUserId, latestDataRef.current, lastSavedDataRef.current), "Salvamento")
       .then(() => {
         lastSavedDataRef.current = latestDataRef.current;
         lastSnapshotRef.current = serializeData(latestDataRef.current);
@@ -207,10 +248,16 @@ export default function Home() {
   useEffect(() => {
     const saved = localStorage.getItem("barbearia-pro-data");
     if (saved) {
-      const localData = JSON.parse(saved) as AppData;
-      latestDataRef.current = localData;
-      lastSnapshotRef.current = serializeData(localData);
-      setData(localData);
+      try {
+        const localData = JSON.parse(saved) as AppData;
+        latestDataRef.current = localData;
+        lastSnapshotRef.current = serializeData(localData);
+        setData(localData);
+      } catch {
+        localStorage.removeItem("barbearia-pro-data");
+        localStorage.removeItem("barbearia-pro-backup");
+        localStorage.removeItem("barbearia-pro-last-backup");
+      }
     }
     setLastBackup(localStorage.getItem("barbearia-pro-last-backup") || "");
 
@@ -221,7 +268,7 @@ export default function Home() {
     }
 
     setSyncStatus("Carregando dados do banco...");
-    loadRemoteData(client, sharedUserId)
+    withTimeout(loadRemoteData(client, sharedUserId), "Carregamento")
       .then(async (remoteData) => {
         if (hasData(remoteData)) {
           suppressNextSaveRef.current = true;
@@ -233,7 +280,7 @@ export default function Home() {
           return;
         }
 
-        await saveRemoteData(client, sharedUserId, initialData);
+        await withTimeout(saveRemoteData(client, sharedUserId, initialData), "Inicialização do banco");
         lastSavedDataRef.current = initialData;
         lastSnapshotRef.current = serializeData(initialData);
         setSyncStatus("Banco iniciado");
@@ -248,11 +295,15 @@ export default function Home() {
 
   useEffect(() => {
     latestDataRef.current = data;
-    localStorage.setItem("barbearia-pro-data", JSON.stringify(data));
-    const backup = { createdAt: new Date().toISOString(), data };
-    localStorage.setItem("barbearia-pro-backup", JSON.stringify(backup));
-    localStorage.setItem("barbearia-pro-last-backup", backup.createdAt);
-    setLastBackup(backup.createdAt);
+    try {
+      localStorage.setItem("barbearia-pro-data", JSON.stringify(data));
+      const backup = { createdAt: new Date().toISOString(), data };
+      localStorage.setItem("barbearia-pro-backup", JSON.stringify(backup));
+      localStorage.setItem("barbearia-pro-last-backup", backup.createdAt);
+      setLastBackup(backup.createdAt);
+    } catch {
+      setSyncStatus("Armazenamento local cheio, usando banco");
+    }
 
     if (suppressNextSaveRef.current) {
       suppressNextSaveRef.current = false;
@@ -269,7 +320,7 @@ export default function Home() {
     if (!client) return;
     const interval = window.setInterval(() => {
       if (savingRef.current || dirtyRef.current || Date.now() - lastLocalChangeRef.current < 8000) return;
-      loadRemoteData(client, sharedUserId)
+      withTimeout(loadRemoteData(client, sharedUserId), "Atualização do banco")
         .then((remoteData) => {
           if (!hasData(remoteData)) return;
           const snapshot = serializeData(remoteData);
@@ -294,7 +345,10 @@ export default function Home() {
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register(`${basePath}/sw.js`).catch(() => undefined);
+      navigator.serviceWorker.getRegistrations().then((registrations) => registrations.forEach((registration) => registration.unregister())).catch(() => undefined);
+    }
+    if ("caches" in window) {
+      caches.keys().then((keys) => keys.forEach((key) => caches.delete(key))).catch(() => undefined);
     }
   }, []);
 
@@ -331,7 +385,7 @@ export default function Home() {
       id: newId("c"),
       name: String(form.get("name") || ""),
       phone: String(form.get("phone") || ""),
-      birthDate: String(form.get("birthDate") || ""),
+      birthDate: toInputDate(String(form.get("birthDate") || ""), ""),
       notes: String(form.get("notes") || ""),
     };
     if (!client.name.trim()) return;
@@ -343,7 +397,7 @@ export default function Home() {
       id: newId("s"),
       clientId: String(form.get("clientId")),
       barberId: String(form.get("barberId")),
-      date: String(form.get("date") || todayKey()),
+      date: toInputDate(String(form.get("date") || ""), todayKey()),
       service: String(form.get("service") || ""),
       customService: String(form.get("customService") || ""),
       value: Number(form.get("value") || 0),
@@ -355,7 +409,7 @@ export default function Home() {
   const addExpense = (form: FormData) => {
     const expense: Expense = {
       id: newId("e"),
-      date: String(form.get("date") || todayKey()),
+      date: toInputDate(String(form.get("date") || ""), todayKey()),
       category: String(form.get("category") || ""),
       description: String(form.get("description") || ""),
       value: Number(form.get("value") || 0),
@@ -392,7 +446,7 @@ export default function Home() {
       id: newId("ps"),
       productId,
       clientId: String(form.get("clientId") || ""),
-      date: String(form.get("date") || todayKey()),
+      date: toInputDate(String(form.get("date") || ""), todayKey()),
       quantity,
       unitPrice: Number(form.get("unitPrice") || product.price),
     };
@@ -410,7 +464,7 @@ export default function Home() {
       id: newId("a"),
       clientId: String(form.get("clientId")),
       barberId: String(form.get("barberId")),
-      date: String(form.get("date") || todayKey()),
+      date: toInputDate(String(form.get("date") || ""), todayKey()),
       time: String(form.get("time") || "09:00"),
       service: String(form.get("service") || ""),
       status: "Pendente",
@@ -471,7 +525,8 @@ export default function Home() {
     if (name === null || !name) return;
     const phone = promptText("Telefone", client.phone);
     if (phone === null) return;
-    const birthDate = promptText("Data de nascimento (AAAA-MM-DD)", client.birthDate);
+    const birthDateValue = promptText("Data de nascimento (DD-MM-AAAA)", toDisplayDate(client.birthDate));
+    const birthDate = birthDateValue === null ? null : toInputDate(birthDateValue, "");
     if (birthDate === null) return;
     const notes = window.prompt("Observações", client.notes);
     if (notes === null) return;
@@ -486,7 +541,8 @@ export default function Home() {
     if (clientId === null) return;
     const barberId = promptChoice("Barbeiro", data.barbers.map((barber) => ({ id: barber.id, text: barber.name })), service.barberId);
     if (barberId === null) return;
-    const date = promptText("Data do atendimento (AAAA-MM-DD)", service.date);
+    const dateValue = promptText("Data do atendimento (DD-MM-AAAA)", toDisplayDate(service.date));
+    const date = dateValue === null ? null : toInputDate(dateValue, service.date);
     if (date === null || !date) return;
     const serviceName = promptText("Serviço realizado", service.service);
     if (serviceName === null || !serviceName) return;
@@ -499,7 +555,8 @@ export default function Home() {
   };
 
   const editExpense = (expense: Expense) => {
-    const date = promptText("Data da despesa (AAAA-MM-DD)", expense.date);
+    const dateValue = promptText("Data da despesa (DD-MM-AAAA)", toDisplayDate(expense.date));
+    const date = dateValue === null ? null : toInputDate(dateValue, expense.date);
     if (date === null || !date) return;
     const category = promptText("Categoria", expense.category);
     if (category === null || !category) return;
@@ -545,7 +602,8 @@ export default function Home() {
     if (clientId === null) return;
     const barberId = promptChoice("Barbeiro", data.barbers.map((barber) => ({ id: barber.id, text: barber.name })), appointment.barberId);
     if (barberId === null) return;
-    const date = promptText("Data do agendamento (AAAA-MM-DD)", appointment.date);
+    const dateValue = promptText("Data do agendamento (DD-MM-AAAA)", toDisplayDate(appointment.date));
+    const date = dateValue === null ? null : toInputDate(dateValue, appointment.date);
     if (date === null || !date) return;
     const time = promptText("Horário (HH:MM)", appointment.time);
     if (time === null || !time) return;
@@ -583,7 +641,7 @@ export default function Home() {
     doc.setFontSize(18);
     doc.text("Relatório BRAVOS BARBEARIA", 14, 18);
     doc.setFontSize(11);
-    doc.text(`Gerado em ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 28);
+    doc.text(`Gerado em ${format(new Date(), "dd-MM-yyyy HH:mm")}`, 14, 28);
     const lines = [
       `Receita diária: ${brl.format(metrics.today)}`,
       `Receita semanal: ${brl.format(metrics.week)}`,
@@ -644,7 +702,7 @@ export default function Home() {
                 PDF
               </button>
               <span className="hidden rounded-md border border-line bg-panel px-3 py-2 text-xs text-muted md:inline">
-                Backup {lastBackup ? format(parseISO(lastBackup), "dd/MM HH:mm") : "pendente"}
+                Backup {safeBackupDate(lastBackup)}
               </span>
             </div>
           </div>
@@ -701,7 +759,7 @@ export default function Home() {
                 <SmartForm action={addClient} submit="Salvar cliente">
                   <Field label="Nome completo" name="name" />
                   <Field label="Telefone" name="phone" />
-                  <Field label="Data de nascimento" name="birthDate" type="date" />
+                  <DateField label="Data de nascimento" name="birthDate" defaultValue="" />
                   <Textarea label="Observações" name="notes" />
                 </SmartForm>
               </Panel>
@@ -715,7 +773,7 @@ export default function Home() {
                         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                           <div>
                             <h3 className="font-semibold">{client.name}</h3>
-                            <p className="text-sm text-muted">{client.phone} • Nasc. {client.birthDate ? format(parseISO(client.birthDate), "dd/MM/yyyy") : "não informado"}</p>
+                            <p className="text-sm text-muted">{client.phone} • Nasc. {client.birthDate ? safeDisplayDate(client.birthDate) : "não informado"}</p>
                             <p className="mt-2 text-sm text-muted">{client.notes}</p>
                             <p className="mt-3 text-sm text-gold">{history.length} atendimento(s) • {brl.format(serviceRevenue(history))}</p>
                           </div>
@@ -742,7 +800,7 @@ export default function Home() {
                 <SmartForm action={addService} submit="Registrar serviço">
                   <Select label="Cliente" name="clientId" options={data.clients.map((client) => [client.id, client.name])} />
                   <Select label="Barbeiro" name="barberId" options={data.barbers.filter((barber) => barber.active).map((barber) => [barber.id, barber.name])} />
-                  <Field label="Data" name="date" type="date" defaultValue={todayKey()} />
+                  <DateField label="Data" name="date" defaultValue={todayKey()} />
                   <Field label="Serviço realizado" name="service" placeholder="Ex.: Corte degradê, barba terapia, luzes" />
                   <Field label="Valor cobrado" name="value" type="number" />
                 </SmartForm>
@@ -755,7 +813,7 @@ export default function Home() {
                         <div>
                           <p className="font-semibold">{selectedClient(service.clientId)?.name ?? "-"}</p>
                           <p className="text-sm text-muted">
-                            {format(parseISO(service.date), "dd/MM/yyyy")} • {selectedBarber(service.barberId)?.name ?? "-"} • {service.service}
+                            {safeDisplayDate(service.date)} • {selectedBarber(service.barberId)?.name ?? "-"} • {service.service}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
@@ -781,7 +839,7 @@ export default function Home() {
                 <SmartForm action={sellProduct} submit="Registrar venda">
                   <Select label="Produto" name="productId" options={data.products.map((product) => [product.id, product.name])} />
                   <Select label="Cliente" name="clientId" options={[["", "Venda avulsa"], ...data.clients.map((client) => [client.id, client.name])]} />
-                  <Field label="Data" name="date" type="date" defaultValue={todayKey()} />
+                  <DateField label="Data" name="date" defaultValue={todayKey()} />
                   <Field label="Quantidade" name="quantity" type="number" defaultValue="1" />
                   <Field label="Preço unitário" name="unitPrice" type="number" />
                 </SmartForm>
@@ -792,7 +850,7 @@ export default function Home() {
               </Panel>
               <Panel title="Saídas">
                 <SmartForm action={addExpense} submit="Registrar despesa">
-                  <Field label="Data" name="date" type="date" defaultValue={todayKey()} />
+                  <DateField label="Data" name="date" defaultValue={todayKey()} />
                   <Field label="Categoria" name="category" placeholder="Ex.: Aluguel, produtos, taxa, limpeza" />
                   <Field label="Descrição" name="description" />
                   <Field label="Valor" name="value" type="number" />
@@ -808,7 +866,7 @@ export default function Home() {
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <p className="font-semibold">{expense.description || expense.category}</p>
-                          <p className="text-sm text-muted">{format(parseISO(expense.date), "dd/MM/yyyy")} • {expense.category}</p>
+                          <p className="text-sm text-muted">{safeDisplayDate(expense.date)} • {expense.category}</p>
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-gold">{brl.format(expense.value)}</span>
@@ -858,9 +916,9 @@ export default function Home() {
           {tab === "historico" && (
             <Panel title="Histórico financeiro">
               <div className="grid gap-3 md:grid-cols-[1fr_1fr_1.4fr]">
-                <Field label="Consultar dia" name="selectedDate" type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} />
-                <Field label="Início do período" name="start" type="date" value={range.start} onChange={(event) => setRange((current) => ({ ...current, start: event.target.value }))} />
-                <Field label="Fim do período" name="end" type="date" value={range.end} onChange={(event) => setRange((current) => ({ ...current, end: event.target.value }))} />
+                <DateField label="Consultar dia" name="selectedDate" value={selectedDate} onDateChange={setSelectedDate} />
+                <DateField label="Início do período" name="start" value={range.start} onDateChange={(value) => setRange((current) => ({ ...current, start: value }))} />
+                <DateField label="Fim do período" name="end" value={range.end} onDateChange={(value) => setRange((current) => ({ ...current, end: value }))} />
               </div>
               <div className="mt-5 grid gap-3 sm:grid-cols-3">
                 <MiniMetric label="Entradas do dia" value={brl.format(totalEntries(data, (date) => date === selectedDate))} />
@@ -874,7 +932,7 @@ export default function Home() {
                     .filter((item) => item.date >= range.start && item.date <= range.end)
                     .filter((item) => (selectedClient(item.clientId)?.name ?? "").toLowerCase().includes(query.toLowerCase()))
                     .map((item) => ({
-                      Data: format(parseISO(item.date), "dd/MM/yyyy"),
+                      Data: safeDisplayDate(item.date),
                       Cliente: selectedClient(item.clientId)?.name ?? "-",
                       Barbeiro: selectedBarber(item.barberId)?.name ?? "-",
                       Serviço: item.service,
@@ -900,7 +958,7 @@ export default function Home() {
                 <SmartForm action={addAppointment} submit="Criar agendamento">
                   <Select label="Cliente" name="clientId" options={data.clients.map((client) => [client.id, client.name])} />
                   <Select label="Barbeiro" name="barberId" options={data.barbers.filter((barber) => barber.active).map((barber) => [barber.id, barber.name])} />
-                  <Field label="Data" name="date" type="date" defaultValue={todayKey()} />
+                  <DateField label="Data" name="date" defaultValue={todayKey()} />
                   <Field label="Horário" name="time" type="time" defaultValue="09:00" />
                   <Field label="Serviço" name="service" placeholder="Ex.: Corte social, barba, pigmentação" />
                 </SmartForm>
@@ -914,7 +972,7 @@ export default function Home() {
                       <Card key={appointment.id}>
                         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                           <div>
-                            <p className="font-semibold">{format(parseISO(appointment.date), "dd/MM/yyyy")} às {appointment.time}</p>
+                            <p className="font-semibold">{safeDisplayDate(appointment.date)} às {appointment.time}</p>
                             <p className="text-sm text-muted">{selectedClient(appointment.clientId)?.name} • {appointment.service} • {selectedBarber(appointment.barberId)?.name}</p>
                           </div>
                           <div className="flex gap-2">
@@ -1014,6 +1072,67 @@ function Field(props: React.InputHTMLAttributes<HTMLInputElement> & { label: str
       <span className="mb-1 block text-sm text-muted">{label}</span>
       <input
         {...input}
+        className="h-11 w-full rounded-md border border-line bg-coal px-3 text-ivory outline-none transition placeholder:text-muted focus:border-gold"
+      />
+    </label>
+  );
+}
+
+function DateField({
+  label,
+  name,
+  defaultValue = todayKey(),
+  value,
+  onDateChange,
+}: {
+  label: string;
+  name: string;
+  defaultValue?: string;
+  value?: string;
+  onDateChange?: (value: string) => void;
+}) {
+  const initialValue = value ?? defaultValue;
+  const [text, setText] = useState(toDisplayDate(initialValue));
+  const [isoValue, setIsoValue] = useState(toInputDate(initialValue, defaultValue));
+  const hiddenRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (value === undefined) return;
+    setText(toDisplayDate(value));
+    setIsoValue(toInputDate(value, defaultValue));
+  }, [defaultValue, value]);
+
+  useEffect(() => {
+    const form = hiddenRef.current?.form;
+    if (!form || value !== undefined) return;
+    const reset = () => {
+      setText(toDisplayDate(defaultValue));
+      setIsoValue(toInputDate(defaultValue, defaultValue));
+    };
+    form.addEventListener("reset", reset);
+    return () => form.removeEventListener("reset", reset);
+  }, [defaultValue, value]);
+
+  const commit = (nextText: string) => {
+    setText(nextText);
+    const nextIso = toInputDate(nextText, isoValue || defaultValue);
+    setIsoValue(nextIso);
+    if (/^\d{2}[-/]\d{2}[-/]\d{4}$/.test(nextText) || /^\d{4}-\d{2}-\d{2}$/.test(nextText)) {
+      setText(toDisplayDate(nextIso));
+      onDateChange?.(nextIso);
+    }
+  };
+
+  return (
+    <label className="block">
+      <span className="mb-1 block text-sm text-muted">{label}</span>
+      <input ref={hiddenRef} type="hidden" name={name} value={isoValue} readOnly />
+      <input
+        value={text}
+        onChange={(event) => commit(event.target.value)}
+        onBlur={() => setText(toDisplayDate(isoValue))}
+        placeholder="DD-MM-AAAA"
+        inputMode="numeric"
         className="h-11 w-full rounded-md border border-line bg-coal px-3 text-ivory outline-none transition placeholder:text-muted focus:border-gold"
       />
     </label>
