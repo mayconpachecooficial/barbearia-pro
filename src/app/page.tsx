@@ -20,6 +20,7 @@ import {
   CreditCard,
   Download,
   Package,
+  Pencil,
   Plus,
   Scissors,
   Search,
@@ -124,6 +125,18 @@ const navItems: Array<{ key: Tab; label: string; icon: React.ElementType }> = [
 ];
 
 const newId = (prefix: string) => `${prefix}${crypto.randomUUID()}`;
+
+const promptText = (label: string, current = "") => {
+  const value = window.prompt(label, current);
+  return value === null ? null : value.trim();
+};
+
+const promptNumber = (label: string, current: number) => {
+  const value = window.prompt(label, String(current));
+  if (value === null) return null;
+  const parsed = Number(value.replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : null;
+};
 
 export default function Home() {
   const [data, setData] = useState<AppData>(initialData);
@@ -380,6 +393,104 @@ export default function Home() {
     }));
   };
 
+  const editClient = (client: Client) => {
+    const name = promptText("Nome completo", client.name);
+    if (name === null || !name) return;
+    const phone = promptText("Telefone", client.phone);
+    if (phone === null) return;
+    const birthDate = promptText("Data de nascimento (AAAA-MM-DD)", client.birthDate);
+    if (birthDate === null) return;
+    const notes = window.prompt("Observações", client.notes);
+    if (notes === null) return;
+    setData((current) => ({
+      ...current,
+      clients: current.clients.map((item) => (item.id === client.id ? { ...item, name, phone, birthDate, notes } : item)),
+    }));
+  };
+
+  const editService = (service: ServiceRecord) => {
+    const date = promptText("Data do atendimento (AAAA-MM-DD)", service.date);
+    if (date === null || !date) return;
+    const serviceName = promptText("Serviço realizado", service.service);
+    if (serviceName === null || !serviceName) return;
+    const value = promptNumber("Valor cobrado", service.value);
+    if (value === null || value <= 0) return;
+    setData((current) => ({
+      ...current,
+      services: current.services.map((item) => (item.id === service.id ? { ...item, date, service: serviceName, value } : item)),
+    }));
+  };
+
+  const editExpense = (expense: Expense) => {
+    const date = promptText("Data da despesa (AAAA-MM-DD)", expense.date);
+    if (date === null || !date) return;
+    const category = promptText("Categoria", expense.category);
+    if (category === null || !category) return;
+    const description = promptText("Descrição", expense.description);
+    if (description === null) return;
+    const value = promptNumber("Valor", expense.value);
+    if (value === null || value <= 0) return;
+    setData((current) => ({
+      ...current,
+      expenses: current.expenses.map((item) => (item.id === expense.id ? { ...item, date, category, description, value } : item)),
+    }));
+  };
+
+  const editProduct = (product: Product) => {
+    const name = promptText("Nome do produto", product.name);
+    if (name === null || !name) return;
+    const category = promptText("Categoria", product.category);
+    if (category === null || !category) return;
+    const stock = promptNumber("Estoque total", product.stock);
+    if (stock === null || stock < 0) return;
+    const cost = promptNumber("Custo", product.cost);
+    if (cost === null || cost < 0) return;
+    const price = promptNumber("Preço de venda", product.price);
+    if (price === null || price < 0) return;
+    setData((current) => ({
+      ...current,
+      products: current.products.map((item) => (item.id === product.id ? { ...item, name, category, stock, cost, price } : item)),
+    }));
+  };
+
+  const addProductStock = (product: Product) => {
+    const quantity = promptNumber(`Adicionar quantas unidades em ${product.name}?`, 1);
+    if (quantity === null || quantity <= 0) return;
+    setData((current) => ({
+      ...current,
+      products: current.products.map((item) => (item.id === product.id ? { ...item, stock: item.stock + quantity } : item)),
+    }));
+    setNotice(`Estoque atualizado: ${product.name} recebeu ${quantity} un.`);
+  };
+
+  const editAppointment = (appointment: Appointment) => {
+    const date = promptText("Data do agendamento (AAAA-MM-DD)", appointment.date);
+    if (date === null || !date) return;
+    const time = promptText("Horário (HH:MM)", appointment.time);
+    if (time === null || !time) return;
+    const service = promptText("Serviço", appointment.service);
+    if (service === null || !service) return;
+    setData((current) => ({
+      ...current,
+      appointments: current.appointments.map((item) => (item.id === appointment.id ? { ...item, date, time, service } : item)),
+    }));
+  };
+
+  const editBarber = (barber: Barber) => {
+    const name = promptText("Nome do barbeiro", barber.name);
+    if (name === null || !name) return;
+    const email = promptText("E-mail", barber.email);
+    if (email === null) return;
+    const commissionRate = promptNumber("Comissão (%)", barber.commissionRate);
+    if (commissionRate === null || commissionRate < 0) return;
+    const role = promptText("Permissão", barber.role) as Barber["role"] | null;
+    if (role === null || !role) return;
+    setData((current) => ({
+      ...current,
+      barbers: current.barbers.map((item) => (item.id === barber.id ? { ...item, name, email, commissionRate, role } : item)),
+    }));
+  };
+
   const updateAppointmentStatus = (id: string, status: Appointment["status"]) => {
     setData((current) => ({
       ...current,
@@ -529,9 +640,14 @@ export default function Home() {
                             <p className="mt-2 text-sm text-muted">{client.notes}</p>
                             <p className="mt-3 text-sm text-gold">{history.length} atendimento(s) • {brl.format(serviceRevenue(history))}</p>
                           </div>
-                          <button onClick={() => deleteClient(client.id)} className="icon-button" title="Excluir cliente">
-                            <Trash2 size={17} />
-                          </button>
+                          <div className="flex gap-2">
+                            <button onClick={() => editClient(client)} className="icon-button" title="Editar cliente">
+                              <Pencil size={17} />
+                            </button>
+                            <button onClick={() => deleteClient(client.id)} className="icon-button" title="Excluir cliente">
+                              <Trash2 size={17} />
+                            </button>
+                          </div>
                         </div>
                       </Card>
                     );
@@ -565,6 +681,9 @@ export default function Home() {
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="font-semibold text-gold">{brl.format(service.value)}</span>
+                          <button onClick={() => editService(service)} className="icon-button" title="Editar atendimento">
+                            <Pencil size={17} />
+                          </button>
                           <button onClick={() => deleteById("services", service.id)} className="icon-button" title="Excluir atendimento">
                             <Trash2 size={17} />
                           </button>
@@ -614,6 +733,9 @@ export default function Home() {
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-gold">{brl.format(expense.value)}</span>
+                          <button onClick={() => editExpense(expense)} className="icon-button" title="Editar despesa">
+                            <Pencil size={17} />
+                          </button>
                           <button onClick={() => deleteById("expenses", expense.id)} className="icon-button" title="Excluir despesa">
                             <Trash2 size={17} />
                           </button>
@@ -688,7 +810,7 @@ export default function Home() {
             <div className="grid gap-6 xl:grid-cols-[0.85fr_1.4fr]">
               <ProductForm action={addProduct} />
               <Panel title="Estoque e lucro">
-                <ProductList products={data.products} productSales={data.productSales} deleteProduct={deleteProduct} />
+                <ProductList products={data.products} productSales={data.productSales} editProduct={editProduct} addProductStock={addProductStock} deleteProduct={deleteProduct} />
               </Panel>
             </div>
           )}
@@ -717,6 +839,9 @@ export default function Home() {
                             <p className="text-sm text-muted">{selectedClient(appointment.clientId)?.name} • {appointment.service} • {selectedBarber(appointment.barberId)?.name}</p>
                           </div>
                           <div className="flex gap-2">
+                            <button onClick={() => editAppointment(appointment)} className="icon-button" title="Editar agendamento">
+                              <Pencil size={17} />
+                            </button>
                             <button onClick={() => updateAppointmentStatus(appointment.id, "Confirmado")} className="icon-button" title="Confirmar">
                               <CheckCircle2 size={17} />
                             </button>
@@ -763,6 +888,9 @@ export default function Home() {
                             <p className="font-semibold text-gold">{brl.format(serviceRevenue(barberServices))}</p>
                             <p className="text-sm text-muted">Comissão {brl.format(barberCommission(barber, barberServices))}</p>
                             </div>
+                            <button onClick={() => editBarber(barber)} className="icon-button" title="Editar barbeiro">
+                              <Pencil size={17} />
+                            </button>
                             <button onClick={() => deleteBarber(barber.id)} className="icon-button" title="Excluir barbeiro">
                               <Trash2 size={17} />
                             </button>
@@ -854,10 +982,14 @@ function ProductForm({ action }: { action: (form: FormData) => void }) {
 function ProductList({
   products,
   productSales,
+  editProduct,
+  addProductStock,
   deleteProduct,
 }: {
   products: Product[];
   productSales: ProductSale[];
+  editProduct: (product: Product) => void;
+  addProductStock: (product: Product) => void;
   deleteProduct: (id: string) => void;
 }) {
   return (
@@ -873,6 +1005,12 @@ function ProductList({
               </div>
               <div className="flex items-center gap-2">
                 <span className="rounded bg-gold/15 px-2 py-1 text-xs text-gold">{product.stock} un.</span>
+                <button onClick={() => addProductStock(product)} className="icon-button" title="Adicionar estoque">
+                  <Plus size={17} />
+                </button>
+                <button onClick={() => editProduct(product)} className="icon-button" title="Editar produto">
+                  <Pencil size={17} />
+                </button>
                 <button onClick={() => deleteProduct(product.id)} className="icon-button" title="Excluir produto">
                   <Trash2 size={17} />
                 </button>
