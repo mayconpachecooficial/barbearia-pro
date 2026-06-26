@@ -34,10 +34,9 @@ NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 ```
 
-6. Crie um usuário em Authentication com e-mail e senha.
-7. Rode `npm run dev` e entre com esse usuário.
+6. Rode `npm run dev`.
 
-Quando o Supabase está configurado, o sistema usa `signInWithPassword`, carrega os dados das tabelas do usuário e sincroniza alterações automaticamente. Sem variáveis de ambiente, o sistema roda em modo local com backup no `localStorage`.
+Quando o Supabase está configurado, o sistema carrega os dados compartilhados do banco e sincroniza alterações automaticamente. Sem variáveis de ambiente, o sistema roda em modo local com backup no `localStorage`.
 
 ## Build
 
@@ -45,24 +44,25 @@ Quando o Supabase está configurado, o sistema usa `signInWithPassword`, carrega
 npm run build
 ```
 
-## Publicação
+## Publicação na Vercel
 
-O projeto está pronto para GitHub público e GitHub Pages.
+Recomendado para produção.
 
-1. Crie um repositório público no GitHub.
-2. Envie o código para a branch `main`.
-3. No GitHub, abra `Settings > Secrets and variables > Actions`.
-4. Cadastre os secrets:
+1. Envie o projeto para um repositório no GitHub.
+2. Acesse `https://vercel.com`.
+3. Clique em `Add New > Project`.
+4. Importe o repositório `barbearia-pro`.
+5. Em `Environment Variables`, cadastre:
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY
 ```
 
-5. Abra `Settings > Pages`.
-6. Em `Build and deployment`, selecione `GitHub Actions`.
-7. Faça push na `main`.
+6. Clique em `Deploy`.
 
-O workflow `.github/workflows/deploy.yml` gera o site estático em `out` e publica no GitHub Pages. Para repositórios comuns, o workflow usa automaticamente `NEXT_PUBLIC_BASE_PATH=/{nome-do-repositorio}` para o site abrir em `https://usuario.github.io/nome-do-repositorio/`.
+Na Vercel, o site roda sem `NEXT_PUBLIC_BASE_PATH`, então a URL fica limpa, por exemplo `https://seu-projeto.vercel.app`.
 
-Se o repositório for do tipo `usuario.github.io`, remova a variável `NEXT_PUBLIC_BASE_PATH` do workflow para publicar na raiz do domínio.
+## Observação sobre GitHub Pages
+
+O deploy por GitHub Pages foi removido. Use a Vercel para publicar o sistema em produção.

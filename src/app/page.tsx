@@ -1091,50 +1091,40 @@ function DateField({
   value?: string;
   onDateChange?: (value: string) => void;
 }) {
-  const initialValue = value ?? defaultValue;
-  const [text, setText] = useState(toDisplayDate(initialValue));
-  const [isoValue, setIsoValue] = useState(toInputDate(initialValue, defaultValue));
-  const hiddenRef = useRef<HTMLInputElement>(null);
+  const initialValue = toInputDate(value ?? defaultValue, defaultValue);
+  const [isoValue, setIsoValue] = useState(initialValue);
+  const fieldRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (value === undefined) return;
-    setText(toDisplayDate(value));
     setIsoValue(toInputDate(value, defaultValue));
   }, [defaultValue, value]);
 
   useEffect(() => {
-    const form = hiddenRef.current?.form;
+    const form = fieldRef.current?.form;
     if (!form || value !== undefined) return;
     const reset = () => {
-      setText(toDisplayDate(defaultValue));
       setIsoValue(toInputDate(defaultValue, defaultValue));
     };
     form.addEventListener("reset", reset);
     return () => form.removeEventListener("reset", reset);
-  }, [defaultValue, value]);
-
-  const commit = (nextText: string) => {
-    setText(nextText);
-    const nextIso = toInputDate(nextText, isoValue || defaultValue);
-    setIsoValue(nextIso);
-    if (/^\d{2}[-/]\d{2}[-/]\d{4}$/.test(nextText) || /^\d{4}-\d{2}-\d{2}$/.test(nextText)) {
-      setText(toDisplayDate(nextIso));
-      onDateChange?.(nextIso);
-    }
-  };
+  }, [defaultValue, name, value]);
 
   return (
     <label className="block">
       <span className="mb-1 block text-sm text-muted">{label}</span>
-      <input ref={hiddenRef} type="hidden" name={name} value={isoValue} readOnly />
       <input
-        value={text}
-        onChange={(event) => commit(event.target.value)}
-        onBlur={() => setText(toDisplayDate(isoValue))}
-        placeholder="DD-MM-AAAA"
-        inputMode="numeric"
+        type="date"
+        ref={fieldRef}
+        name={name}
+        value={isoValue}
+        onChange={(event) => {
+          setIsoValue(event.target.value);
+          onDateChange?.(event.target.value);
+        }}
         className="h-11 w-full rounded-md border border-line bg-coal px-3 text-ivory outline-none transition placeholder:text-muted focus:border-gold"
       />
+      <span className="mt-1 block text-xs text-muted">{isoValue ? toDisplayDate(isoValue) : "DD-MM-AAAA"}</span>
     </label>
   );
 }
