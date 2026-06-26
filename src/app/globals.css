@@ -13,11 +13,14 @@
 
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
 }
 
 body {
+  width: 100%;
   min-height: 100vh;
   margin: 0;
+  overflow-x: hidden;
   background:
     radial-gradient(circle at 50% -20%, rgba(216, 166, 63, 0.12), transparent 34rem),
     linear-gradient(180deg, #0b0b0b 0%, #080808 45%, #101010 100%);
@@ -30,6 +33,7 @@ input,
 select,
 textarea {
   font: inherit;
+  max-width: 100%;
 }
 
 button {

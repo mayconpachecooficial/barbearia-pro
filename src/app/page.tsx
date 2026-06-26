@@ -760,7 +760,7 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen">
+    <main className="min-h-screen overflow-x-hidden">
       <aside className="no-print fixed inset-y-0 left-0 z-30 hidden w-72 border-r border-line bg-coal/95 p-5 backdrop-blur lg:block">
         <div className="mb-8 flex items-center gap-3">
           <div className="grid size-11 place-items-center rounded-md border border-gold/50 bg-gold/10 text-gold">
@@ -774,7 +774,7 @@ export default function Home() {
         <NavigationItems activeTab={tab} onSelect={selectTab} />
       </aside>
 
-      <section className="lg:ml-72">
+      <section className="min-w-0 overflow-x-hidden lg:ml-72">
         <header className="no-print sticky top-0 z-20 border-b border-line bg-coal/86 px-4 py-4 backdrop-blur lg:px-8">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="flex items-center gap-3">
@@ -810,7 +810,7 @@ export default function Home() {
           ) : null}
         </header>
 
-        <div className="space-y-6 px-4 py-6 lg:px-8">
+        <div className="min-w-0 space-y-6 px-4 py-6 sm:px-5 lg:px-8">
           {notice ? (
             <div className="no-print flex items-center justify-between gap-3 rounded-md border border-gold/40 bg-gold/10 px-4 py-3 text-sm text-ivory">
               <span>{notice}</span>
@@ -821,14 +821,14 @@ export default function Home() {
           ) : null}
           {tab === "dashboard" && (
             <>
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+              <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-5">
                 <Stat title="Faturado hoje" value={brl.format(metrics.today)} icon={BadgeDollarSign} />
                 <Stat title="Faturado semana" value={brl.format(metrics.week)} icon={TrendingUp} />
                 <Stat title="Faturado mês" value={brl.format(metrics.month)} icon={CreditCard} />
                 <Stat title="Atendimentos hoje" value={String(metrics.todayCount)} icon={Scissors} />
                 <Stat title="Ticket médio" value={brl.format(metrics.averageTicket)} icon={Users} />
               </div>
-              <div className="grid gap-6 xl:grid-cols-[1.7fr_1fr]">
+              <div className="grid min-w-0 gap-6 xl:grid-cols-[1.7fr_1fr]">
                 <Panel title="Faturamento por dia">
                   <div className="h-80">
                     <ResponsiveContainer width="100%" height="100%">
@@ -856,7 +856,7 @@ export default function Home() {
           )}
 
           {tab === "clientes" && (
-            <div className="grid gap-6 xl:grid-cols-[0.85fr_1.4fr]">
+            <div className="grid min-w-0 gap-6 xl:grid-cols-[0.85fr_1.4fr]">
               <Panel title="Cadastrar cliente">
                 <SmartForm action={addClient} submit="Salvar cliente">
                   <Field label="Nome completo" name="name" />
@@ -903,7 +903,7 @@ export default function Home() {
           )}
 
           {tab === "servicos" && (
-            <div className="grid gap-6 xl:grid-cols-[0.85fr_1.4fr]">
+            <div className="grid min-w-0 gap-6 xl:grid-cols-[0.85fr_1.4fr]">
               <Panel title="Finalizar atendimento">
                 <SmartForm action={addService} submit="Registrar serviço">
                   <Select label="Cliente" name="clientId" options={data.clients.map((client) => [client.id, client.name])} />
@@ -949,7 +949,7 @@ export default function Home() {
           )}
 
           {tab === "financeiro" && (
-            <div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
+            <div className="grid min-w-0 gap-6 xl:grid-cols-[1fr_1fr]">
               <Panel title="Entradas">
                 <SmartForm action={sellProduct} submit="Registrar venda">
                   <Select label="Produto" name="productId" options={data.products.map((product) => [product.id, product.name])} />
@@ -1007,9 +1007,9 @@ export default function Home() {
           )}
 
           {tab === "relatorios" && (
-            <div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
+            <div className="grid min-w-0 gap-6 xl:grid-cols-[1fr_1fr]">
               <Panel title="Resumo financeiro">
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid min-w-0 gap-3 sm:grid-cols-2">
                   <MiniMetric label="Receita diária" value={brl.format(metrics.today)} />
                   <MiniMetric label="Receita semanal" value={brl.format(metrics.week)} />
                   <MiniMetric label="Receita mensal" value={brl.format(metrics.month)} />
@@ -1036,12 +1036,12 @@ export default function Home() {
 
           {tab === "historico" && (
             <Panel title="Histórico financeiro">
-              <div className="grid gap-3 md:grid-cols-[1fr_1fr_1.4fr]">
+              <div className="grid min-w-0 gap-3 md:grid-cols-[1fr_1fr_1.4fr]">
                 <DateField label="Consultar dia" name="selectedDate" value={selectedDate} onDateChange={setSelectedDate} />
                 <DateField label="Início do período" name="start" value={range.start} onDateChange={(value) => setRange((current) => ({ ...current, start: value }))} />
                 <DateField label="Fim do período" name="end" value={range.end} onDateChange={(value) => setRange((current) => ({ ...current, end: value }))} />
               </div>
-              <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <div className="mt-5 grid min-w-0 gap-3 sm:grid-cols-3">
                 <MiniMetric label="Entradas do dia" value={brl.format(totalEntries(data, (date) => date === selectedDate))} />
                 <MiniMetric label="Saídas do dia" value={brl.format(totalExpenses(data, (date) => date === selectedDate))} />
                 <MiniMetric label="Lucro do dia" value={brl.format(netProfit(data, (date) => date === selectedDate))} />
@@ -1065,7 +1065,7 @@ export default function Home() {
           )}
 
           {tab === "produtos" && (
-            <div className="grid gap-6 xl:grid-cols-[0.85fr_1.4fr]">
+            <div className="grid min-w-0 gap-6 xl:grid-cols-[0.85fr_1.4fr]">
               <ProductForm action={addProduct} />
               <Panel title="Estoque e lucro">
                 {editingProduct ? (
@@ -1095,7 +1095,7 @@ export default function Home() {
           )}
 
           {tab === "agenda" && (
-            <div className="grid gap-6 xl:grid-cols-[0.85fr_1.4fr]">
+            <div className="grid min-w-0 gap-6 xl:grid-cols-[0.85fr_1.4fr]">
               <Panel title="Agendamento online">
                 <SmartForm action={addAppointment} submit="Criar agendamento">
                   <Select label="Cliente" name="clientId" options={data.clients.map((client) => [client.id, client.name])} />
@@ -1115,7 +1115,7 @@ export default function Home() {
                 ) : null}
               </Panel>
               <Panel title="Calendário de horários">
-                <div className="grid gap-3">
+                <div className="grid min-w-0 gap-3">
                   {visibleAppointments.map((appointment) => (
                       <Card key={appointment.id}>
                         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -1168,7 +1168,7 @@ export default function Home() {
           )}
 
           {tab === "admin" && (
-            <div className="grid gap-6 xl:grid-cols-[0.85fr_1.4fr]">
+            <div className="grid min-w-0 gap-6 xl:grid-cols-[0.85fr_1.4fr]">
               <Panel title="Cadastrar barbeiro">
                 <SmartForm action={addBarber} submit="Salvar barbeiro">
                   <Field label="Nome" name="name" />
@@ -1335,11 +1335,11 @@ function DeleteButton({ title, onConfirm }: { title: string; onConfirm: () => vo
 function Field(props: React.InputHTMLAttributes<HTMLInputElement> & { label: string; name: string }) {
   const { label, ...input } = props;
   return (
-    <label className="block">
+    <label className="block min-w-0">
       <span className="mb-1 block text-sm text-muted">{label}</span>
       <input
         {...input}
-        className="h-11 w-full rounded-md border border-line bg-coal px-3 text-ivory outline-none transition placeholder:text-muted focus:border-gold"
+        className="h-11 w-full min-w-0 rounded-md border border-line bg-coal px-3 text-ivory outline-none transition placeholder:text-muted focus:border-gold"
       />
     </label>
   );
@@ -1363,7 +1363,7 @@ function PhoneField(props: React.InputHTMLAttributes<HTMLInputElement> & { label
   }, [defaultValue]);
 
   return (
-    <label className="block">
+    <label className="block min-w-0">
       <span className="mb-1 block text-sm text-muted">{label}</span>
       <input
         {...input}
@@ -1374,7 +1374,7 @@ function PhoneField(props: React.InputHTMLAttributes<HTMLInputElement> & { label
         value={phone}
         onChange={(event) => setPhone(formatPhone(event.target.value))}
         placeholder={input.placeholder ?? "(00) 0 0000-0000"}
-        className="h-11 w-full rounded-md border border-line bg-coal px-3 text-ivory outline-none transition placeholder:text-muted focus:border-gold"
+        className="h-11 w-full min-w-0 rounded-md border border-line bg-coal px-3 text-ivory outline-none transition placeholder:text-muted focus:border-gold"
       />
     </label>
   );
@@ -1383,14 +1383,14 @@ function PhoneField(props: React.InputHTMLAttributes<HTMLInputElement> & { label
 function DecimalField(props: React.InputHTMLAttributes<HTMLInputElement> & { label: string; name: string }) {
   const { label, ...input } = props;
   return (
-    <label className="block">
+    <label className="block min-w-0">
       <span className="mb-1 block text-sm text-muted">{label}</span>
       <input
         {...input}
         type="text"
         inputMode="decimal"
         placeholder={input.placeholder ?? "Ex.: 99,90"}
-        className="h-11 w-full rounded-md border border-line bg-coal px-3 text-ivory outline-none transition placeholder:text-muted focus:border-gold"
+        className="h-11 w-full min-w-0 rounded-md border border-line bg-coal px-3 text-ivory outline-none transition placeholder:text-muted focus:border-gold"
       />
     </label>
   );
@@ -1414,7 +1414,7 @@ function MoneyField(props: React.InputHTMLAttributes<HTMLInputElement> & { label
   }, [defaultValue]);
 
   return (
-    <label className="block">
+    <label className="block min-w-0">
       <span className="mb-1 block text-sm text-muted">{label}</span>
       <input
         {...input}
@@ -1424,7 +1424,7 @@ function MoneyField(props: React.InputHTMLAttributes<HTMLInputElement> & { label
         value={money}
         onChange={(event) => setMoney(formatMoneyTyping(event.target.value))}
         placeholder={input.placeholder ?? "Ex.: 99,90"}
-        className="h-11 w-full rounded-md border border-line bg-coal px-3 text-ivory outline-none transition placeholder:text-muted focus:border-gold"
+        className="h-11 w-full min-w-0 rounded-md border border-line bg-coal px-3 text-ivory outline-none transition placeholder:text-muted focus:border-gold"
       />
     </label>
   );
@@ -1463,7 +1463,7 @@ function DateField({
   }, [defaultValue, name, value]);
 
   return (
-    <label className="block">
+    <label className="block min-w-0">
       <span className="mb-1 block text-sm text-muted">{label}</span>
       <input
         type="date"
@@ -1474,7 +1474,7 @@ function DateField({
           setIsoValue(event.target.value);
           onDateChange?.(event.target.value);
         }}
-        className="h-11 w-full rounded-md border border-line bg-coal px-3 text-ivory outline-none transition placeholder:text-muted focus:border-gold"
+        className="h-11 w-full min-w-0 rounded-md border border-line bg-coal px-3 text-ivory outline-none transition placeholder:text-muted focus:border-gold"
       />
       <span className="mt-1 block text-xs text-muted">{isoValue ? toDisplayDate(isoValue) : "DD-MM-AAAA"}</span>
     </label>
@@ -1483,18 +1483,18 @@ function DateField({
 
 function Textarea({ label, name, defaultValue = "" }: { label: string; name: string; defaultValue?: string }) {
   return (
-    <label className="block">
+    <label className="block min-w-0">
       <span className="mb-1 block text-sm text-muted">{label}</span>
-      <textarea name={name} rows={4} defaultValue={defaultValue} className="w-full rounded-md border border-line bg-coal px-3 py-2 text-ivory outline-none transition focus:border-gold" />
+      <textarea name={name} rows={4} defaultValue={defaultValue} className="w-full min-w-0 rounded-md border border-line bg-coal px-3 py-2 text-ivory outline-none transition focus:border-gold" />
     </label>
   );
 }
 
 function Select({ label, name, options, defaultValue }: { label: string; name: string; options: string[][]; defaultValue?: string }) {
   return (
-    <label className="block">
+    <label className="block min-w-0">
       <span className="mb-1 block text-sm text-muted">{label}</span>
-      <select name={name} defaultValue={defaultValue} className="h-11 w-full rounded-md border border-line bg-coal px-3 text-ivory outline-none transition focus:border-gold">
+      <select name={name} defaultValue={defaultValue} className="h-11 w-full min-w-0 rounded-md border border-line bg-coal px-3 text-ivory outline-none transition focus:border-gold">
         {options.map(([value, text]) => (
           <option key={`${name}-${value}`} value={value}>
             {text}
@@ -1535,7 +1535,7 @@ function ProductList({
   deleteProduct: (id: string) => void;
 }) {
   return (
-    <div className="grid gap-3 md:grid-cols-2">
+    <div className="grid min-w-0 gap-3 md:grid-cols-2">
       {products.map((product) => (
           <Card key={product.id}>
             <div className="flex items-start justify-between gap-3">
@@ -1581,7 +1581,7 @@ function SearchBox({ query, setQuery, placeholder }: { query: string; setQuery: 
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="print-card rounded-lg border border-line bg-panel p-5 shadow-[0_12px_45px_rgba(0,0,0,0.28)]">
+    <section className="print-card min-w-0 overflow-hidden rounded-lg border border-line bg-panel p-4 shadow-[0_12px_45px_rgba(0,0,0,0.28)] sm:p-5">
       <h2 className="mb-5 text-lg font-semibold">{title}</h2>
       {children}
     </section>
@@ -1589,12 +1589,12 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
 }
 
 function Card({ children }: { children: React.ReactNode }) {
-  return <article className="rounded-lg border border-line bg-coal p-4">{children}</article>;
+  return <article className="min-w-0 overflow-hidden rounded-lg border border-line bg-coal p-4">{children}</article>;
 }
 
 function Stat({ title, value, icon: Icon }: { title: string; value: string; icon: React.ElementType }) {
   return (
-    <article className="rounded-lg border border-line bg-panel p-4">
+    <article className="min-w-0 rounded-lg border border-line bg-panel p-4">
       <div className="mb-4 flex items-center justify-between">
         <p className="text-sm text-muted">{title}</p>
         <Icon className="text-gold" size={20} />
@@ -1606,7 +1606,7 @@ function Stat({ title, value, icon: Icon }: { title: string; value: string; icon
 
 function MiniMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-line bg-coal p-4">
+    <div className="min-w-0 rounded-md border border-line bg-coal p-4">
       <p className="text-sm text-muted">{label}</p>
       <p className="mt-1 text-xl font-semibold text-gold">{value}</p>
     </div>
@@ -1615,9 +1615,9 @@ function MiniMetric({ label, value }: { label: string; value: string }) {
 
 function Row({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-line/70 py-2 last:border-0">
+    <div className="flex min-w-0 items-center justify-between gap-4 border-b border-line/70 py-2 last:border-0">
       <span className="text-sm text-muted">{label}</span>
-      <span className={strong ? "font-semibold text-gold" : "font-medium text-ivory"}>{value}</span>
+      <span className={strong ? "min-w-0 break-words text-right font-semibold text-gold" : "min-w-0 break-words text-right font-medium text-ivory"}>{value}</span>
     </div>
   );
 }
