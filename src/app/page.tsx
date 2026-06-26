@@ -63,7 +63,6 @@ import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 const sharedUserId = null;
 const databaseTimeoutMs = 12000;
-const serializeData = (items: AppData) => JSON.stringify(items);
 const hasData = (items: AppData) =>
   items.clients.length ||
   items.barbers.length ||
@@ -302,10 +301,9 @@ export default function Home() {
   const dirtyRef = useRef(false);
   const suppressNextSaveRef = useRef(false);
   const saveTimerRef = useRef<number | null>(null);
+  const localSaveTimerRef = useRef<number | null>(null);
   const latestDataRef = useRef(data);
   const lastSavedDataRef = useRef<AppData | undefined>(undefined);
-  const lastSnapshotRef = useRef(serializeData(initialData));
-  const lastLocalChangeRef = useRef(0);
 
   const flushSave = () => {
     const client = supabase;
@@ -318,7 +316,6 @@ export default function Home() {
     withTimeout(saveRemoteData(client, sharedUserId, latestDataRef.current, lastSavedDataRef.current), "Salvamento")
       .then(() => {
         lastSavedDataRef.current = latestDataRef.current;
-        lastSnapshotRef.current = serializeData(latestDataRef.current);
         setSyncStatus("Salvo no banco");
       })
       .catch(() => {
@@ -337,11 +334,11 @@ export default function Home() {
   const scheduleSave = () => {
     const client = supabase;
     if (!client || !hydratedRef.current) return;
+    const wasAlreadyDirty = dirtyRef.current;
     dirtyRef.current = true;
-    lastLocalChangeRef.current = Date.now();
-    setSyncStatus("Alteração pendente");
+    if (!wasAlreadyDirty) setSyncStatus("Salvando em instantes...");
     if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = window.setTimeout(flushSave, 1500);
+    saveTimerRef.current = window.setTimeout(flushSave, 5000);
   };
 
   useEffect(() => {
@@ -350,7 +347,6 @@ export default function Home() {
       try {
         const localData = normalizeAppData(JSON.parse(saved) as AppData);
         latestDataRef.current = localData;
-        lastSnapshotRef.current = serializeData(localData);
         setData(localData);
       } catch {
         localStorage.removeItem("barbearia-pro-data");
@@ -374,7 +370,6 @@ export default function Home() {
           suppressNextSaveRef.current = true;
           latestDataRef.current = remoteData;
           lastSavedDataRef.current = remoteData;
-          lastSnapshotRef.current = serializeData(remoteData);
           setData(remoteData);
           setSyncStatus("Banco conectado");
           return;
@@ -382,7 +377,6 @@ export default function Home() {
 
         await withTimeout(saveRemoteData(client, sharedUserId, initialData), "Inicialização do banco");
         lastSavedDataRef.current = initialData;
-        lastSnapshotRef.current = serializeData(initialData);
         setSyncStatus("Banco iniciado");
       })
       .catch(() => {
@@ -395,52 +389,31 @@ export default function Home() {
 
   useEffect(() => {
     latestDataRef.current = data;
-    try {
-      localStorage.setItem("barbearia-pro-data", JSON.stringify(data));
-      const backup = { createdAt: new Date().toISOString(), data };
-      localStorage.setItem("barbearia-pro-backup", JSON.stringify(backup));
-      localStorage.setItem("barbearia-pro-last-backup", backup.createdAt);
-      setLastBackup(backup.createdAt);
-    } catch {
-      setSyncStatus("Armazenamento local cheio, usando banco");
-    }
+    if (localSaveTimerRef.current) window.clearTimeout(localSaveTimerRef.current);
+    localSaveTimerRef.current = window.setTimeout(() => {
+      try {
+        const backup = { createdAt: new Date().toISOString(), data: latestDataRef.current };
+        localStorage.setItem("barbearia-pro-data", JSON.stringify(latestDataRef.current));
+        localStorage.setItem("barbearia-pro-backup", JSON.stringify(backup));
+        localStorage.setItem("barbearia-pro-last-backup", backup.createdAt);
+        setLastBackup(backup.createdAt);
+      } catch {
+        setSyncStatus("Armazenamento local cheio, usando banco");
+      }
+    }, 900);
 
     if (suppressNextSaveRef.current) {
       suppressNextSaveRef.current = false;
       return;
     }
 
-    const snapshot = serializeData(data);
-    if (snapshot === lastSnapshotRef.current) return;
     scheduleSave();
   }, [data]);
 
   useEffect(() => {
-    const client = supabase;
-    if (!client) return;
-    const interval = window.setInterval(() => {
-      if (savingRef.current || dirtyRef.current || Date.now() - lastLocalChangeRef.current < 8000) return;
-      withTimeout(loadRemoteData(client, sharedUserId), "Atualização do banco")
-        .then((loadedData) => {
-          const remoteData = normalizeAppData(loadedData);
-          if (!hasData(remoteData)) return;
-          const snapshot = serializeData(remoteData);
-          if (snapshot === lastSnapshotRef.current) return;
-          suppressNextSaveRef.current = true;
-          latestDataRef.current = remoteData;
-          lastSavedDataRef.current = remoteData;
-          lastSnapshotRef.current = snapshot;
-          setData(remoteData);
-          setSyncStatus("Banco atualizado");
-        })
-        .catch(() => undefined);
-    }, 60000);
-    return () => window.clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
     return () => {
       if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+      if (localSaveTimerRef.current) window.clearTimeout(localSaveTimerRef.current);
     };
   }, []);
 
