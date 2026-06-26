@@ -951,13 +951,7 @@ export default function Home() {
           {tab === "financeiro" && (
             <div className="grid min-w-0 gap-6 xl:grid-cols-[1fr_1fr]">
               <Panel title="Entradas">
-                <SmartForm action={sellProduct} submit="Registrar venda">
-                  <Select label="Produto" name="productId" options={data.products.map((product) => [product.id, product.name])} />
-                  <Select label="Cliente" name="clientId" options={[["", "Venda avulsa"], ...data.clients.map((client) => [client.id, client.name])]} />
-                  <DateField label="Data" name="date" defaultValue={todayKey()} />
-                  <DecimalField label="Quantidade" name="quantity" defaultValue="1" placeholder="Ex.: 10" />
-                  <MoneyField label="Preço unitário" name="unitPrice" />
-                </SmartForm>
+                <ProductSaleForm products={data.products} clients={data.clients} action={sellProduct} />
                 <div className="mt-5 space-y-2">
                   <Row label="Serviços no mês" value={brl.format(serviceRevenue(data.services.filter((item) => inMonth(item.date))))} />
                   <Row label="Produtos no mês" value={brl.format(sum(data.productSales.filter((item) => inMonth(item.date)).map(productSaleRevenue)))} />
@@ -1490,11 +1484,31 @@ function Textarea({ label, name, defaultValue = "" }: { label: string; name: str
   );
 }
 
-function Select({ label, name, options, defaultValue }: { label: string; name: string; options: string[][]; defaultValue?: string }) {
+function Select({
+  label,
+  name,
+  options,
+  defaultValue,
+  value,
+  onChange,
+}: {
+  label: string;
+  name: string;
+  options: string[][];
+  defaultValue?: string;
+  value?: string;
+  onChange?: React.ChangeEventHandler<HTMLSelectElement>;
+}) {
   return (
     <label className="block min-w-0">
       <span className="mb-1 block text-sm text-muted">{label}</span>
-      <select name={name} defaultValue={defaultValue} className="h-11 w-full min-w-0 rounded-md border border-line bg-coal px-3 text-ivory outline-none transition focus:border-gold">
+      <select
+        name={name}
+        defaultValue={value === undefined ? defaultValue : undefined}
+        value={value}
+        onChange={onChange}
+        className="h-11 w-full min-w-0 rounded-md border border-line bg-coal px-3 text-ivory outline-none transition focus:border-gold"
+      >
         {options.map(([value, text]) => (
           <option key={`${name}-${value}`} value={value}>
             {text}
@@ -1502,6 +1516,37 @@ function Select({ label, name, options, defaultValue }: { label: string; name: s
         ))}
       </select>
     </label>
+  );
+}
+
+function ProductSaleForm({ products, clients, action }: { products: Product[]; clients: Client[]; action: (form: FormData) => boolean | void }) {
+  const [productId, setProductId] = useState(products[0]?.id ?? "");
+  const selectedProduct = products.find((product) => product.id === productId) ?? products[0];
+
+  useEffect(() => {
+    if (!products.length) {
+      setProductId("");
+      return;
+    }
+    if (!products.some((product) => product.id === productId)) {
+      setProductId(products[0].id);
+    }
+  }, [productId, products]);
+
+  return (
+    <SmartForm action={action} submit="Registrar venda">
+      <Select
+        label="Produto"
+        name="productId"
+        value={productId}
+        onChange={(event) => setProductId(event.target.value)}
+        options={products.map((product) => [product.id, product.name])}
+      />
+      <Select label="Cliente" name="clientId" options={[["", "Venda avulsa"], ...clients.map((client) => [client.id, client.name])]} />
+      <DateField label="Data" name="date" defaultValue={todayKey()} />
+      <DecimalField label="Quantidade" name="quantity" defaultValue="1" placeholder="Ex.: 10" />
+      <MoneyField key={selectedProduct?.id ?? "empty-price"} label="Preço unitário" name="unitPrice" defaultValue={selectedProduct?.price ?? ""} />
+    </SmartForm>
   );
 }
 
