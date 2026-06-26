@@ -453,6 +453,26 @@ export default function Home() {
   const selectedClient = (id?: string) => data.clients.find((client) => client.id === id);
   const selectedBarber = (id?: string) => data.barbers.find((barber) => barber.id === id);
   const selectedProduct = (id?: string) => data.products.find((product) => product.id === id);
+  const clientNameById = useMemo(() => new Map(data.clients.map((client) => [client.id, client.name])), [data.clients]);
+  const barberNameById = useMemo(() => new Map(data.barbers.map((barber) => [barber.id, barber.name])), [data.barbers]);
+  const productProfitById = useMemo(() => {
+    const costById = new Map(data.products.map((product) => [product.id, product.cost]));
+    const profitById = new Map<string, number>();
+    data.productSales.forEach((sale) => {
+      const profit = sale.quantity * (sale.unitPrice - (costById.get(sale.productId) ?? 0));
+      profitById.set(sale.productId, (profitById.get(sale.productId) ?? 0) + profit);
+    });
+    return profitById;
+  }, [data.productSales, data.products]);
+  const visibleProducts = useMemo(() => data.products.slice(0, 40), [data.products]);
+  const visibleAppointments = useMemo(
+    () =>
+      data.appointments
+        .slice()
+        .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`))
+        .slice(0, 60),
+    [data.appointments],
+  );
 
   const addClient = (form: FormData) => {
     const client: Client = {
@@ -1021,7 +1041,14 @@ export default function Home() {
             <div className="grid gap-6 xl:grid-cols-[0.85fr_1.4fr]">
               <ProductForm action={addProduct} />
               <Panel title="Estoque e lucro">
-                <ProductList products={data.products} productSales={data.productSales} editProduct={editProduct} addProductStock={addProductStock} deleteProduct={deleteProduct} />
+                <ProductList
+                  products={visibleProducts}
+                  totalProducts={data.products.length}
+                  profitById={productProfitById}
+                  editProduct={editProduct}
+                  addProductStock={addProductStock}
+                  deleteProduct={deleteProduct}
+                />
               </Panel>
             </div>
           )}
@@ -1039,15 +1066,12 @@ export default function Home() {
               </Panel>
               <Panel title="Calendário de horários">
                 <div className="grid gap-3">
-                  {data.appointments
-                    .slice()
-                    .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`))
-                    .map((appointment) => (
+                  {visibleAppointments.map((appointment) => (
                       <Card key={appointment.id}>
                         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                           <div>
                             <p className="font-semibold">{safeDisplayDate(appointment.date)} às {appointment.time}</p>
-                            <p className="text-sm text-muted">{selectedClient(appointment.clientId)?.name} • {appointment.service} • {selectedBarber(appointment.barberId)?.name}</p>
+                            <p className="text-sm text-muted">{clientNameById.get(appointment.clientId) ?? "-"} • {appointment.service} • {barberNameById.get(appointment.barberId) ?? "-"}</p>
                           </div>
                           <div className="flex gap-2">
                             <button onClick={() => editAppointment(appointment)} className="icon-button" title="Editar agendamento">
@@ -1067,6 +1091,11 @@ export default function Home() {
                         </div>
                       </Card>
                     ))}
+                  {data.appointments.length > visibleAppointments.length ? (
+                    <p className="rounded-md border border-line bg-coal p-4 text-sm text-muted">
+                      Mostrando {visibleAppointments.length} de {data.appointments.length} agendamentos.
+                    </p>
+                  ) : null}
                 </div>
               </Panel>
             </div>
@@ -1259,22 +1288,22 @@ function ProductForm({ action }: { action: (form: FormData) => void }) {
 
 function ProductList({
   products,
-  productSales,
+  totalProducts,
+  profitById,
   editProduct,
   addProductStock,
   deleteProduct,
 }: {
   products: Product[];
-  productSales: ProductSale[];
+  totalProducts: number;
+  profitById: Map<string, number>;
   editProduct: (product: Product) => void;
   addProductStock: (product: Product) => void;
   deleteProduct: (id: string) => void;
 }) {
   return (
     <div className="grid gap-3 md:grid-cols-2">
-      {products.map((product) => {
-        const sales = productSales.filter((sale) => sale.productId === product.id);
-        return (
+      {products.map((product) => (
           <Card key={product.id}>
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -1297,11 +1326,15 @@ function ProductList({
             <div className="mt-4 space-y-2 text-sm">
               <Row label="Vendidos" value={String(product.sold)} />
               <Row label="Preço" value={brl.format(product.price)} />
-              <Row label="Lucro" value={brl.format(sum(sales.map((sale) => productSaleProfit(sale, products))))} strong />
+              <Row label="Lucro" value={brl.format(profitById.get(product.id) ?? 0)} strong />
             </div>
           </Card>
-        );
-      })}
+      ))}
+      {totalProducts > products.length ? (
+        <p className="rounded-md border border-line bg-coal p-4 text-sm text-muted md:col-span-2">
+          Mostrando {products.length} de {totalProducts} produtos.
+        </p>
+      ) : null}
     </div>
   );
 }
