@@ -34,8 +34,8 @@ export default function CadastroPage() {
 
     try {
       await signUp(email, password);
-      setSuccess("Conta criada com sucesso!");
-      setTimeout(() => router.push("/login"), 3000);
+      setSuccess("Conta criada com sucesso! Redirecionando...");
+      setTimeout(() => router.push("/login"), 1500);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao criar conta");
     } finally {
