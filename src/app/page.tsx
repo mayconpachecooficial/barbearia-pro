@@ -860,8 +860,12 @@ export default function Home() {
     }));
   };
 
-  const updateOpeningBalance = (value: number) => {
-    setData((current) => ({ ...current, openingBalance: value }));
+  const updateOpeningBalance = (desiredBalance: number) => {
+    const totalIncome = totalEntries(data, () => true);
+    const totalExp = totalExpenses(data, () => true);
+    const totalSaved = sum(data.savings.map((s) => s.value));
+    const newOpeningBalance = desiredBalance - totalIncome + totalExp + totalSaved;
+    setData((current) => ({ ...current, openingBalance: newOpeningBalance }));
     setEditingBalance(false);
   };
 
@@ -992,10 +996,10 @@ export default function Home() {
                       className="mt-1 cursor-pointer text-lg font-bold text-gold hover:text-gold/80"
                       title="Clique para editar"
                     >
-                      {brl.format(data.openingBalance)}
+                      {brl.format(data.openingBalance + totalEntries(data, () => true) - totalExpenses(data, () => true) - sum(data.savings.map((s) => s.value)))}
                     </p>
                   )}
-                  <p className="mt-1 text-xs text-muted">Clique para editar</p>
+                  <p className="mt-1 text-xs text-muted">Saldo inicial: {brl.format(data.openingBalance)}</p>
                 </div>
                 <Stat title="Faturado mês" value={brl.format(metrics.month)} icon={CreditCard} />
                 <Stat title="Cachês mês" value={brl.format(showRevenue(data.shows.filter((s) => inMonth(s.date))))} icon={BadgeDollarSign} />
