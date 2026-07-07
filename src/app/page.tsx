@@ -1198,6 +1198,29 @@ export default function Home() {
                   </ResponsiveContainer>
                 </div>
               </Panel>
+              <Panel title="Ranking de shows">
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={Object.entries(
+                      data.shows
+                        .filter((s) => s.status === "Confirmado")
+                        .reduce((acc, show) => {
+                          acc[show.local] = (acc[show.local] || 0) + show.value;
+                          return acc;
+                        }, {} as Record<string, number>)
+                    )
+                      .sort(([, a], [, b]) => b - a)
+                      .slice(0, 8)
+                      .map(([local, valor]) => ({ local, valor }))}>
+                      <CartesianGrid stroke="#2a2a2a" vertical={false} />
+                      <XAxis dataKey="local" stroke="#a8a29a" />
+                      <YAxis stroke="#a8a29a" />
+                      <Tooltip contentStyle={{ background: "#171717", border: "1px solid #2a2a2a", borderRadius: 8 }} />
+                      <Bar dataKey="valor" fill="#22c55e" radius={[6, 6, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </Panel>
             </div>
           )}
 
