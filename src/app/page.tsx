@@ -41,6 +41,7 @@ import {
   inMonth,
   inWeek,
   netProfit,
+  productRevenue,
   productSaleProfit,
   productSaleRevenue,
   serviceRevenue,
@@ -923,13 +924,11 @@ export default function Home() {
           ) : null}
           {tab === "dashboard" && (
             <>
-              <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-6">
-                <Stat title="Faturado hoje" value={brl.format(metrics.today)} icon={BadgeDollarSign} />
-                <Stat title="Faturado semana" value={brl.format(metrics.week)} icon={TrendingUp} />
+              <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <Stat title="Saldo do dia" value={brl.format(metrics.today - metrics.todayExpenses)} icon={BadgeDollarSign} />
                 <Stat title="Faturado mês" value={brl.format(metrics.month)} icon={CreditCard} />
                 <Stat title="Cachês mês" value={brl.format(showRevenue(data.shows.filter((s) => inMonth(s.date))))} icon={BadgeDollarSign} />
-                <Stat title="Atendimentos hoje" value={String(metrics.todayCount)} icon={Scissors} />
-                <Stat title="Ticket médio" value={brl.format(metrics.averageTicket)} icon={Users} />
+                <Stat title="Lucro líquido mês" value={brl.format(metrics.monthProfit)} icon={TrendingUp} />
               </div>
               <div className="grid min-w-0 gap-6 xl:grid-cols-[1.7fr_1fr]">
                 <Panel title="Faturamento por dia">
@@ -947,13 +946,14 @@ export default function Home() {
                     </ResponsiveContainer>
                   </div>
                 </Panel>
-                <Panel title="Lucro líquido">
+                <Panel title="Resumo do dia">
                   <div className="space-y-3">
-                    <Row label="Hoje" value={brl.format(metrics.todayProfit)} />
-                    <Row label="Semana" value={brl.format(metrics.weekProfit)} />
-                    <Row label="Mês" value={brl.format(metrics.monthProfit)} strong />
-                    <Row label="Cachês do mês" value={brl.format(showRevenue(data.shows.filter((s) => inMonth(s.date))))} />
-                    <Row label="Despesas do mês" value={brl.format(metrics.monthExpenses)} />
+                    <Row label="Serviços" value={brl.format(serviceRevenue(data.services.filter((s) => inDay(s.date))))} />
+                    <Row label="Shows confirmados" value={brl.format(showRevenue(data.shows.filter((s) => inDay(s.date) && s.status === "Confirmado")))} />
+                    <Row label="Produtos" value={brl.format(productRevenue(data.productSales.filter((s) => inDay(s.date))))} />
+                    <Row label="Total entradas" value={brl.format(metrics.today)} strong />
+                    <Row label="Despesas" value={brl.format(metrics.todayExpenses)} />
+                    <Row label="Saldo do dia" value={brl.format(metrics.today - metrics.todayExpenses)} strong />
                   </div>
                 </Panel>
               </div>
